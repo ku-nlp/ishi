@@ -104,6 +104,11 @@ class Ishi:
                         self.logger.debug(f'No volition: {mrph.midasi} is 可能接尾辞')
                         return False
 
+                    # 動詞性接尾辞:なる: おいしくなくなる
+                    if 'なる' == mrph.genkei and '動詞性接尾辞' == mrph.bunrui:
+                        self.logger.debug(f'No volition: {mrph.midasi} is 動詞性接尾辞:なる')
+                        return False
+
                 return True
 
         return False
