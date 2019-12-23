@@ -87,14 +87,6 @@ class Ishi:
                     self.logger.debug(f'No volition: this predicate is exceptional')
                     return False
 
-                # check the modality of the predicate
-                if '<モダリティ-' in tag.fstring:
-                    modalities = re.findall("<モダリティ-(.+?)>", tag.fstring)
-                    no_volition_modalities = ['禁止', '評価:弱', '評価:強', '認識-推量', '認識-蓋然性', '認識-証拠性']
-                    if any((modality in modalities for modality in no_volition_modalities)):
-                        self.logger.debug(f'No volition: the predicate has a modality showing no volition')
-                        return False
-
                 # checks the feature of the predicate
                 for mrph in tag.mrph_list():
                     # 可能動詞: 飲める, 走れる
