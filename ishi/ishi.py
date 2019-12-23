@@ -11,7 +11,7 @@ from mojimoji import han_to_zen
 here = os.path.dirname(os.path.abspath(__file__))
 
 
-def is_volition(input_str, logging_level='INFO'):
+def has_volition(input_str, logging_level='INFO'):
     """Checks if the given input has volition.
 
     Args:
