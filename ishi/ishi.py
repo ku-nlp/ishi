@@ -28,19 +28,20 @@ def has_volition(str_or_blist, logging_level='INFO'):
 
 def get_exceptional_head_repnames():
     here = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(here, 'exceptional_head_repnames.txt')) as f:
+    with open(os.path.join(here, 'no_volition_head_repnames.txt')) as f:
         return [line.strip() for line in f]
 
 
 class Ishi:
     """Ishi is a volition classifier for Japanese."""
 
-    def __init__(self, exceptional_head_repnames=None):
+    def __init__(self, no_volition_head_repnames=None):
         """Ishi prepares KNP and a list of exceptional head repnames.
 
         Args:
-            exceptional_head_repnames (typing.List[str]): A list of exceptional head repnames.
+            no_volition_head_repnames (typing.List[str]): A list of exceptional head repnames.
                 Ishi judges that clauses with these head repnames do not have volition.
+
         """
         self.logger = getLogger(__name__)
         handler = StreamHandler()
@@ -50,8 +51,8 @@ class Ishi:
 
         self.knp = KNP()
 
-        if exceptional_head_repnames:
-            self.exceptional_head_repnames = set(exceptional_head_repnames)
+        if no_volition_head_repnames:
+            self.exceptional_head_repnames = set(no_volition_head_repnames)
         else:
             self.exceptional_head_repnames = set(get_exceptional_head_repnames())
 
@@ -130,6 +131,7 @@ class Ishi:
 
         Returns:
             str: The preprocessed string.
+
         """
         preprocessed = han_to_zen(input_str)
         return preprocessed
