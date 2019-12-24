@@ -91,13 +91,29 @@ class Ishi:
                     self.logger.debug(f'No volition: the predicate is {predicate_type.group(1)}')
                     return False
 
+                # checks the modality of the predicate
+                for modality in re.findall("<モダリティ-(.+?)>", tag.fstring):
+                    if modality in ('意志',):
+                        self.logger.debug(f'No volition: the predicate has the modality of volition')
+                        return False
+
                 # check if the predicate is exceptional
                 if (tag.head_prime_repname or tag.head_repname) in self.exceptional_head_repnames:
                     self.logger.debug(f'No volition: this predicate is exceptional')
                     return False
 
                 # checks the feature of the predicate
-                for mrph in tag.mrph_list():
+                for mrph in reversed(tag.mrph_list()):
+                    # 動詞性接尾辞:なる: おいしくなくなる
+                    if 'なる' == mrph.genkei and '動詞性接尾辞' == mrph.bunrui:
+                        self.logger.debug(f'No volition: {mrph.midasi} is 動詞性接尾辞:なる')
+                        return False
+
+                    # 可能接尾辞: 預けておける, 持っていける
+                    if '可能接尾辞' in mrph.imis:
+                        self.logger.debug(f'No volition: {mrph.midasi} is 可能接尾辞')
+                        return False
+
                     # 可能動詞: 飲める, 走れる
                     if '可能動詞' in mrph.imis:
                         self.logger.debug(f'No volition: {mrph.midasi} is 可能動詞')
@@ -106,16 +122,6 @@ class Ishi:
                     # 自他動詞:他: 色づく, 削れる
                     if '自他動詞:他' in mrph.imis:
                         self.logger.debug(f'No volition: {mrph.midasi} is 自他動詞:他')
-                        return False
-
-                    # 可能接尾辞: 預けておける, 持っていける
-                    if '可能接尾辞' in mrph.imis:
-                        self.logger.debug(f'No volition: {mrph.midasi} is 可能接尾辞')
-                        return False
-
-                    # 動詞性接尾辞:なる: おいしくなくなる
-                    if 'なる' == mrph.genkei and '動詞性接尾辞' == mrph.bunrui:
-                        self.logger.debug(f'No volition: {mrph.midasi} is 動詞性接尾辞:なる')
                         return False
 
                 return True
