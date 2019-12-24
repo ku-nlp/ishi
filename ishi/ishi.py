@@ -4,25 +4,26 @@ import re
 import os
 import typing
 
-from pyknp import KNP
+from pyknp import KNP, BList
 from mojimoji import han_to_zen
 
 
 here = os.path.dirname(os.path.abspath(__file__))
 
 
-def has_volition(input_str, logging_level='INFO'):
+def has_volition(str_or_blist, logging_level='INFO'):
     """Checks if the given input has volition.
 
     Args:
-        input_str (str): An input string.
+        str_or_blist (typing.Union[str, BList]): An input string or the language analysis by KNP.
         logging_level (str): The logging level.
 
     Returns:
         bool: True for having volition, False otherwise.
+
     """
     ishi = Ishi()
-    return ishi(input_str, logging_level)
+    return ishi(str_or_blist, logging_level)
 
 
 def get_exceptional_head_repnames():
@@ -54,24 +55,31 @@ class Ishi:
         else:
             self.exceptional_head_repnames = set(get_exceptional_head_repnames())
 
-    def __call__(self, input_str, logging_level='INFO'):
+    def __call__(self, str_or_blist, logging_level='INFO'):
         """Checks if the given input has volition.
 
         Ishi relies on language analysis by Jumanpp.
 
         Args:
-            input_str (str): An input string.
+            str_or_blist (typing.Union[str, BList]): An input string or the language analysis by KNP.
             logging_level (str): The logging level.
 
         Returns:
             bool: True for having volition, False otherwise.
+
         """
         self.logger.setLevel(logging_level)
 
-        self.logger.debug(f'Input string: {input_str}')
+        if isinstance(str_or_blist, str):
+            self.logger.debug(f'Input string: {str_or_blist}')
+            preprocessed = self.preprocess_input_str(str_or_blist)
+            knp_output = self.knp.parse(preprocessed)
+        elif isinstance(str_or_blist, BList):
+            self.logger.debug(f'Input string: {"".join(m.midasi for m in str_or_blist.mrph_list())}')
+            knp_output = str_or_blist
+        else:
+            raise RuntimeError
 
-        preprocessed = self.preprocess_input_str(input_str)
-        knp_output = self.knp.parse(preprocessed)
         for tag in reversed(knp_output.tag_list()):
             # find the last predicate
             predicate_type = re.search('<用言:([動形判])>', tag.fstring)
