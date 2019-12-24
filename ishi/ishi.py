@@ -26,20 +26,20 @@ def has_volition(str_or_blist, logging_level='INFO'):
     return ishi(str_or_blist, logging_level)
 
 
-def get_no_volition_head_repnames():
+def get_non_volition_head_repnames():
     here = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(here, 'no_volition_head_repnames.txt')) as f:
+    with open(os.path.join(here, 'non_volition_head_repnames.txt')) as f:
         return [line.strip() for line in f]
 
 
 class Ishi:
     """Ishi is a volition classifier for Japanese."""
 
-    def __init__(self, no_volition_head_repnames=None):
+    def __init__(self, non_volition_head_repnames=None):
         """Ishi prepares KNP and a list of exceptional head repnames.
 
         Args:
-            no_volition_head_repnames (typing.List[str]): A list of exceptional head repnames.
+            non_volition_head_repnames (typing.List[str]): A list of exceptional head repnames.
                 Ishi judges that clauses with these head repnames do not have volition.
 
         """
@@ -51,10 +51,10 @@ class Ishi:
 
         self.knp = KNP()
 
-        if no_volition_head_repnames:
-            self.exceptional_head_repnames = set(no_volition_head_repnames)
+        if non_volition_head_repnames:
+            self.exceptional_head_repnames = set(non_volition_head_repnames)
         else:
-            self.exceptional_head_repnames = set(get_no_volition_head_repnames())
+            self.exceptional_head_repnames = set(get_non_volition_head_repnames())
 
     def __call__(self, str_or_blist, logging_level='INFO'):
         """Checks if the given input has volition.
