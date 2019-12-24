@@ -26,7 +26,7 @@ def has_volition(str_or_blist, logging_level='INFO'):
     return ishi(str_or_blist, logging_level)
 
 
-def get_exceptional_head_repnames():
+def get_no_volition_head_repnames():
     here = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(here, 'no_volition_head_repnames.txt')) as f:
         return [line.strip() for line in f]
@@ -54,7 +54,7 @@ class Ishi:
         if no_volition_head_repnames:
             self.exceptional_head_repnames = set(no_volition_head_repnames)
         else:
-            self.exceptional_head_repnames = set(get_exceptional_head_repnames())
+            self.exceptional_head_repnames = set(get_no_volition_head_repnames())
 
     def __call__(self, str_or_blist, logging_level='INFO'):
         """Checks if the given input has volition.
