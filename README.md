@@ -31,4 +31,10 @@ from pyknp import KNP
 knp = KNP()
 knp_output = knp.parse('自然言語処理の研究に必要なのは言語に対する深い洞察だ')
 print(ishi(knp_output))  # False
+
+# Ishi even accepts basic phrases of predicates
+for tag in reversed(knp_output.tag_list()):
+    if '<用言:' in tag.fstring:
+        print(ishi(tag))  # False
+        break
 ```
