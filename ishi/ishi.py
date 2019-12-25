@@ -4,7 +4,7 @@ import re
 import os
 import typing
 
-from pyknp import KNP, BList
+from pyknp import KNP, BList, Tag
 from mojimoji import han_to_zen
 
 
@@ -56,13 +56,13 @@ class Ishi:
         else:
             self.exceptional_head_repnames = set(get_non_volition_head_repnames())
 
-    def __call__(self, str_or_blist, logging_level='INFO'):
+    def __call__(self, str_or_blist_or_tag, logging_level='INFO'):
         """Checks if the given input has volition.
 
         Ishi relies on language analysis by Jumanpp.
 
         Args:
-            str_or_blist (typing.Union[str, BList]): An input string or the language analysis by KNP.
+            str_or_blist_or_tag (typing.Union[str, BList, Tag]): An input string or the language analysis by KNP.
             logging_level (str): The logging level.
 
         Returns:
@@ -71,60 +71,64 @@ class Ishi:
         """
         self.logger.setLevel(logging_level)
 
-        if isinstance(str_or_blist, str):
-            self.logger.debug(f'Input string: {str_or_blist}')
-            preprocessed = self.preprocess_input_str(str_or_blist)
-            knp_output = self.knp.parse(preprocessed)
-        elif isinstance(str_or_blist, BList):
-            self.logger.debug(f'Input string: {"".join(m.midasi for m in str_or_blist.mrph_list())}')
-            knp_output = str_or_blist
+        if isinstance(str_or_blist_or_tag, str):
+            self.logger.debug(f'Input string: {str_or_blist_or_tag}')
+            predicate_tag = self.extract_predicate_tag(
+                self.knp.parse(
+                    self.preprocess_input_str(str_or_blist_or_tag)
+                )
+            )
+        elif isinstance(str_or_blist_or_tag, BList):
+            self.logger.debug(f'Input string: {"".join(m.midasi for m in str_or_blist_or_tag.mrph_list())}')
+            predicate_tag = self.extract_predicate_tag(str_or_blist_or_tag)
+        elif isinstance(str_or_blist_or_tag, Tag):
+            predicate_tag = str_or_blist_or_tag
         else:
             raise RuntimeError
 
-        for tag in reversed(knp_output.tag_list()):
-            # find the last predicate
-            predicate_type = re.search('<用言:([動形判])>', tag.fstring)
+        # find the last predicate
+        predicate_type = re.search('<用言:([動形判])>', predicate_tag.fstring)
 
-            if predicate_type:
-                # checks the type of the predicate
-                if predicate_type.group(1) in ('形', '判'):
-                    self.logger.debug(f'No volition: the predicate is {predicate_type.group(1)}')
+        if predicate_type:
+            # checks the type of the predicate
+            if predicate_type.group(1) in ('形', '判'):
+                self.logger.debug(f'No volition: the predicate is {predicate_type.group(1)}')
+                return False
+
+            # checks the modality of the predicate
+            for modality in re.findall("<モダリティ-(.+?)>", predicate_tag.fstring):
+                if modality in ('意志',):
+                    self.logger.debug(f'No volition: the predicate has the modality of volition')
                     return False
 
-                # checks the modality of the predicate
-                for modality in re.findall("<モダリティ-(.+?)>", tag.fstring):
-                    if modality in ('意志',):
-                        self.logger.debug(f'No volition: the predicate has the modality of volition')
-                        return False
+            # check if the predicate is exceptional
+            if (predicate_tag.head_prime_repname or predicate_tag.head_repname) in self.exceptional_head_repnames:
+                self.logger.debug(f'No volition: this predicate is exceptional')
+                return False
 
-                # check if the predicate is exceptional
-                if (tag.head_prime_repname or tag.head_repname) in self.exceptional_head_repnames:
-                    self.logger.debug(f'No volition: this predicate is exceptional')
+            # checks the feature of the predicate
+            for mrph in reversed(predicate_tag.mrph_list()):
+                # 動詞性接尾辞:なる: おいしくなくなる
+                if 'なる' == mrph.genkei and '動詞性接尾辞' == mrph.bunrui:
+                    self.logger.debug(f'No volition: {mrph.midasi} is 動詞性接尾辞:なる')
                     return False
 
-                # checks the feature of the predicate
-                for mrph in reversed(tag.mrph_list()):
-                    # 動詞性接尾辞:なる: おいしくなくなる
-                    if 'なる' == mrph.genkei and '動詞性接尾辞' == mrph.bunrui:
-                        self.logger.debug(f'No volition: {mrph.midasi} is 動詞性接尾辞:なる')
-                        return False
+                # 可能接尾辞: 預けておける, 持っていける
+                if '可能接尾辞' in mrph.imis:
+                    self.logger.debug(f'No volition: {mrph.midasi} is 可能接尾辞')
+                    return False
 
-                    # 可能接尾辞: 預けておける, 持っていける
-                    if '可能接尾辞' in mrph.imis:
-                        self.logger.debug(f'No volition: {mrph.midasi} is 可能接尾辞')
-                        return False
+                # 可能動詞: 飲める, 走れる
+                if '可能動詞' in mrph.imis:
+                    self.logger.debug(f'No volition: {mrph.midasi} is 可能動詞')
+                    return False
 
-                    # 可能動詞: 飲める, 走れる
-                    if '可能動詞' in mrph.imis:
-                        self.logger.debug(f'No volition: {mrph.midasi} is 可能動詞')
-                        return False
+                # 自他動詞:他: 色づく, 削れる
+                if '自他動詞:他' in mrph.imis:
+                    self.logger.debug(f'No volition: {mrph.midasi} is 自他動詞:他')
+                    return False
 
-                    # 自他動詞:他: 色づく, 削れる
-                    if '自他動詞:他' in mrph.imis:
-                        self.logger.debug(f'No volition: {mrph.midasi} is 自他動詞:他')
-                        return False
-
-                return True
+            return True
 
         return False
 
@@ -141,3 +145,20 @@ class Ishi:
         """
         preprocessed = han_to_zen(input_str)
         return preprocessed
+
+    @staticmethod
+    def extract_predicate_tag(knp_output):
+        """Extracts the predicate part from the given KNP output.
+
+        Args:
+            knp_output (BList): A KNP output.
+
+        Returns:
+            Tag
+
+        """
+        for tag in reversed(knp_output.tag_list()):
+            if '<用言:' in tag.fstring:
+                return tag
+        else:
+            return knp_output.tag_list()[-1]
