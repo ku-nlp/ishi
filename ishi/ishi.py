@@ -98,8 +98,8 @@ class Ishi:
             # checks the modality of the predicate
             for modality in re.findall("<モダリティ-(.+?)>", predicate_tag.fstring):
                 if modality in ('意志',):
-                    self.logger.debug(f'No volition: the predicate has the modality of volition')
-                    return False
+                    self.logger.debug(f'Volition: the predicate has the modality of volition')
+                    return True
 
             # check if the predicate is exceptional
             if (predicate_tag.head_prime_repname or predicate_tag.head_repname) in self.exceptional_head_repnames:
