@@ -90,34 +90,81 @@ class Ishi:
         predicate_type = re.search('<用言:([動形判])>', predicate_tag.fstring)
 
         if predicate_type:
-            # checks the type of the predicate
-            if predicate_type.group(1) in ('形', '判'):
-                self.logger.debug(f'No volition: the predicate is {predicate_type.group(1)}')
-                return False
+            # checks the voice of the predicate
+            predicate_voice = re.search('<態:(.+?)>', predicate_tag.fstring)
+            if predicate_voice:
+                predicate_voice = predicate_voice.group(1)
+                # causative voice: 〜にさせる
+                if predicate_voice == {'使役'}:
+                    self.logger.debug(f'Volition: the predicate uses the voice of {predicate_voice}')
+                    return True
+
+                # passive voice: 言われる, 頼まれる
+                if predicate_voice in {'受動'}:
+                    self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
+                    return False
 
             # checks the modality of the predicate
             for modality in re.findall("<モダリティ-(.+?)>", predicate_tag.fstring):
-                if modality in ('意志',):
-                    self.logger.debug(f'Volition: the predicate has the modality of volition')
+                if modality in {'意志'}:
+                    self.logger.debug(f'Volition: the predicate has the modality of {modality}')
                     return True
+
+                if modality in {'禁止'}:
+                    self.logger.debug(f'No volition: the predicate has the modality of {modality}')
+                    return False
+
+            # checks the suffix of the predicate
+            for mrph in reversed(predicate_tag.mrph_list()):
+                # 形容詞性名詞接尾辞: 風邪気味だ
+                if '形容詞性名詞接尾辞' == mrph.bunrui:
+                    self.logger.debug(f'No volition: {mrph.midasi} is 形容詞性名詞接尾辞')
+                    return False
+
+                # 形容詞性述語接尾辞: 読みにくい, しやすい
+                if '形容詞性述語接尾辞' == mrph.bunrui:
+                    self.logger.debug(f'No volition: {mrph.midasi} is 形容詞性述語接尾辞')
+                    return False
+
+                # 動詞性接尾辞
+                if '動詞性接尾辞' == mrph.bunrui:
+                    # 可能接尾辞: 預けておける, 持っていける
+                    if '可能接尾辞' in mrph.imis:
+                        self.logger.debug(f'No volition: {mrph.midasi} is 可能接尾辞')
+                        return False
+
+                    non_volition_suffixes = {
+                        'なる/なる',  # 行かなくなる, しなくなる
+                        'くれる/くれる',  # 来てくれる, 叱ってくれる
+                        'しまう/しまう',  # 飲んでしまう, 言ってしまう
+                        '下さる/くださる',  # 来て下さる
+                        '得る/える',   # 考え得る
+                        '過ぎる/すぎる',  # 行きすぎる
+                        'かねる/かねる',  # しかねる
+                        'あぐむ/あぐむ',  # 攻めあぐむ
+                        'あぐねる/あぐねる',  # 攻めあぐねる
+                        'そびれる/そびれる',  # 書きそびれる
+                        'めく/めく',  # 罪人めく
+                        'ちまう/ちまう',  # 行っちまう
+                        'じまう/じまう',  # 読んじまう
+                        'やがる/やがる',  # 帰りやがる
+                    }
+                    if mrph.repname in non_volition_suffixes:
+                        self.logger.debug(f'No volition: {mrph.midasi} is 動詞性接尾辞 which does not imply volition')
+                        return False
+
+            # checks the type of the predicate
+            if predicate_type.group(1) in {'形', '判'}:
+                self.logger.debug(f'No volition: the predicate is {predicate_type.group(1)}')
+                return False
 
             # check if the predicate is exceptional
             if (predicate_tag.head_prime_repname or predicate_tag.head_repname) in self.exceptional_head_repnames:
                 self.logger.debug(f'No volition: this predicate is exceptional')
                 return False
 
-            # checks the feature of the predicate
+            # checks the predicate
             for mrph in reversed(predicate_tag.mrph_list()):
-                # 動詞性接尾辞:なる: おいしくなくなる
-                if 'なる' == mrph.genkei and '動詞性接尾辞' == mrph.bunrui:
-                    self.logger.debug(f'No volition: {mrph.midasi} is 動詞性接尾辞:なる')
-                    return False
-
-                # 可能接尾辞: 預けておける, 持っていける
-                if '可能接尾辞' in mrph.imis:
-                    self.logger.debug(f'No volition: {mrph.midasi} is 可能接尾辞')
-                    return False
-
                 # 可能動詞: 飲める, 走れる
                 if '可能動詞' in mrph.imis:
                     self.logger.debug(f'No volition: {mrph.midasi} is 可能動詞')
