@@ -110,10 +110,6 @@ class Ishi:
                     self.logger.debug(f'Volition: the predicate has the modality of {modality}')
                     return True
 
-                if modality in {'禁止'}:
-                    self.logger.debug(f'No volition: the predicate has the modality of {modality}')
-                    return False
-
             # checks the suffix of the predicate
             for mrph in reversed(predicate_tag.mrph_list()):
                 # 形容詞性名詞接尾辞: 風邪気味だ
