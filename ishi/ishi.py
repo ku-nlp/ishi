@@ -95,12 +95,27 @@ class Ishi:
             if predicate_voice:
                 predicate_voice = predicate_voice.group(1)
                 # causative voice: 〜にさせる
-                if predicate_voice == {'使役'}:
+                if predicate_voice == '使役':
                     self.logger.debug(f'Volition: the predicate uses the voice of {predicate_voice}')
                     return True
 
                 # passive voice: 言われる, 頼まれる
-                if predicate_voice in {'受動'}:
+                if predicate_voice == '受動':
+                    self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
+                    return False
+
+                # potential voice: 出来る
+                if predicate_voice == '可能':
+                    self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
+                    return False
+
+                # passive/potential voice: 寄せられる
+                if predicate_voice == '受動|可能':
+                    self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
+                    return False
+
+                # causative/passive voice: させられる
+                if predicate_voice == '使役&受動':
                     self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
                     return False
 
