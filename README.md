@@ -4,6 +4,7 @@
 
 - Python v3.6 or later
 - [Jumanpp](https://github.com/ku-nlp/jumanpp)
+- [KNP](http://nlp.ist.i.kyoto-u.ac.jp/index.php?KNP)
 
 ## Installation
 
