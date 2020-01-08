@@ -11,11 +11,14 @@ from mojimoji import han_to_zen
 here = os.path.dirname(os.path.abspath(__file__))
 
 
-def has_volition(str_or_blist, logging_level='INFO'):
+def has_volition(str_or_blist_or_tag, nominative_str_or_tag=None, logging_level='INFO'):
     """Checks if the given input has volition.
 
     Args:
-        str_or_blist (typing.Union[str, BList]): An input string or the language analysis by KNP.
+        str_or_blist_or_tag (typing.Union[str, BList, Tag]): An input string or the language analysis by KNP.
+        nominative_str_or_tag (typing.Union[str, Tag], optional): The string or language analysis of the nominative.
+            If the nominative comes from exophora resolution, pass the surface string such as '著者' and '読者'.
+            Otherwise, pass the language analysis of the nominative with the type of pyknp.Tag.
         logging_level (str): The logging level.
 
     Returns:
@@ -23,7 +26,7 @@ def has_volition(str_or_blist, logging_level='INFO'):
 
     """
     ishi = Ishi()
-    return ishi(str_or_blist, logging_level)
+    return ishi(str_or_blist_or_tag, nominative_str_or_tag, logging_level)
 
 
 def get_non_volition_head_repnames():
@@ -56,13 +59,18 @@ class Ishi:
         else:
             self.exceptional_head_repnames = set(get_non_volition_head_repnames())
 
-    def __call__(self, str_or_blist_or_tag, logging_level='INFO'):
+    def __call__(self, str_or_blist_or_tag, nominative_str_or_tag=None, logging_level='INFO'):
         """Checks if the given input has volition.
 
         Ishi relies on language analysis by Jumanpp.
 
         Args:
             str_or_blist_or_tag (typing.Union[str, BList, Tag]): An input string or the language analysis by KNP.
+            nominative_str_or_tag (typing.Union[str, Tag], optional): The string or language analysis of the nominative.
+                If the nominative comes from exophora resolution, pass the surface string such as '著者' and '読者'.
+                Otherwise, pass the language analysis of the nominative with the type of pyknp.Tag.
+                If this parameter is None, KNP will analyze the nominative. Care must be taken in that KNP just performs
+                case analysis so neither exophora and inter-sentential anaphora will not be resolved.
             logging_level (str): The logging level.
 
         Returns:
@@ -72,123 +80,122 @@ class Ishi:
         self.logger.setLevel(logging_level)
 
         if isinstance(str_or_blist_or_tag, str):
-            self.logger.debug(f'Input string: {str_or_blist_or_tag}')
-            predicate_tag = self.extract_predicate_tag(
-                self.knp.parse(
-                    self.preprocess_input_str(str_or_blist_or_tag)
-                )
-            )
+            blist = self.knp.parse(self.preprocess_input_str(str_or_blist_or_tag))
+            predicate_tag = self.extract_predicate_tag(blist)
         elif isinstance(str_or_blist_or_tag, BList):
-            self.logger.debug(f'Input string: {"".join(m.midasi for m in str_or_blist_or_tag.mrph_list())}')
-            predicate_tag = self.extract_predicate_tag(str_or_blist_or_tag)
+            blist = str_or_blist_or_tag
+            predicate_tag = self.extract_predicate_tag(blist)
         elif isinstance(str_or_blist_or_tag, Tag):
+            blist = None
             predicate_tag = str_or_blist_or_tag
         else:
             raise RuntimeError
 
-        # find the last predicate
-        predicate_type = re.search('<用言:([動形判])>', predicate_tag.fstring)
+        # checks the nominative of the predicate
+        if not nominative_str_or_tag:
+            if predicate_tag.pas:
+                nominatives = predicate_tag.pas.arguments.get('ガ', [])
+                if nominatives:
+                    nominative = nominatives[0]
+                    if nominative.tid == -1:
+                        nominative_str_or_tag = nominative.midasi
+                    elif blist and nominative.sid == blist.sid and nominative.tid < len(blist.tag_list()):
+                        nominative_str_or_tag = blist.tag_list()[nominative.tid]
 
-        if predicate_type:
-            # checks the voice of the predicate
-            predicate_voice = re.search('<態:(.+?)>', predicate_tag.fstring)
-            if predicate_voice:
-                predicate_voice = predicate_voice.group(1)
-                # causative voice: 〜にさせる
-                if predicate_voice == '使役':
-                    self.logger.debug(f'Volition: the predicate uses the voice of {predicate_voice}')
-                    return True
+        if isinstance(nominative_str_or_tag, str):
+            if nominative_str_or_tag not in {'著者', '読者', '不特定:人'}:
+                self.logger.debug('No volition: the nominative is not a subject')
+                return False
+        elif isinstance(nominative_str_or_tag, Tag):
+            if '主体' not in re.findall("<SM-(.+?)>", nominative_str_or_tag.fstring):
+                self.logger.debug('No volition: the nominative is not a subject')
+                return False
+        else:
+            self.logger.warning('Failed to ensure that nominative is a subject')
 
-                # passive voice: 言われる, 頼まれる
-                if predicate_voice == '受動':
-                    self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
-                    return False
+        # checks the modality
+        for modality in re.findall("<モダリティ-(.+?)>", predicate_tag.fstring):
+            if modality in {'意志', '命令', '依頼Ａ', '依頼Ｂ', '評価:弱', '評価:強'}:
+                self.logger.debug(f'Volition: the predicate has the modality of {modality}')
+                return True
 
-                # potential voice: 出来る
-                if predicate_voice == '可能':
-                    self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
-                    return False
+        # checks the voice
+        predicate_voice = re.search('<態:(.+?)>', predicate_tag.fstring)
+        if predicate_voice:
+            predicate_voice = predicate_voice.group(1)
+            if predicate_voice == '使役':
+                self.logger.debug(f'Volition: the predicate uses the voice of {predicate_voice}')
+                return True
 
-                # passive/potential voice: 寄せられる
-                if predicate_voice == '受動|可能':
-                    self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
-                    return False
-
-                # causative/passive voice: させられる
-                if predicate_voice == '使役&受動':
-                    self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
-                    return False
-
-            # checks the modality of the predicate
-            for modality in re.findall("<モダリティ-(.+?)>", predicate_tag.fstring):
-                if modality in {'意志'}:
-                    self.logger.debug(f'Volition: the predicate has the modality of {modality}')
-                    return True
-
-            # checks the suffix of the predicate
-            for mrph in reversed(predicate_tag.mrph_list()):
-                # 形容詞性名詞接尾辞: 風邪気味だ
-                if '形容詞性名詞接尾辞' == mrph.bunrui:
-                    self.logger.debug(f'No volition: {mrph.midasi} is 形容詞性名詞接尾辞')
-                    return False
-
-                # 形容詞性述語接尾辞: 読みにくい, しやすい
-                if '形容詞性述語接尾辞' == mrph.bunrui:
-                    self.logger.debug(f'No volition: {mrph.midasi} is 形容詞性述語接尾辞')
-                    return False
-
-                # 動詞性接尾辞
-                if '動詞性接尾辞' == mrph.bunrui:
-                    # 可能接尾辞: 預けておける, 持っていける
-                    if '可能接尾辞' in mrph.imis:
-                        self.logger.debug(f'No volition: {mrph.midasi} is 可能接尾辞')
-                        return False
-
-                    non_volition_suffixes = {
-                        'なる/なる',  # 行かなくなる, しなくなる
-                        'くれる/くれる',  # 来てくれる, 叱ってくれる
-                        'しまう/しまう',  # 飲んでしまう, 言ってしまう
-                        '下さる/くださる',  # 来て下さる
-                        '得る/える',   # 考え得る
-                        '過ぎる/すぎる',  # 行きすぎる
-                        'かねる/かねる',  # しかねる
-                        'あぐむ/あぐむ',  # 攻めあぐむ
-                        'あぐねる/あぐねる',  # 攻めあぐねる
-                        'そびれる/そびれる',  # 書きそびれる
-                        'めく/めく',  # 罪人めく
-                        'ちまう/ちまう',  # 行っちまう
-                        'じまう/じまう',  # 読んじまう
-                        'やがる/やがる',  # 帰りやがる
-                    }
-                    if mrph.repname in non_volition_suffixes:
-                        self.logger.debug(f'No volition: {mrph.midasi} is 動詞性接尾辞 which does not imply volition')
-                        return False
-
-            # checks the type of the predicate
-            if predicate_type.group(1) in {'形', '判'}:
-                self.logger.debug(f'No volition: the predicate is {predicate_type.group(1)}')
+            if predicate_voice in {'受動', '可能', '受動|可能', '使役&受動', '使役&受動|使役&可能'}:
+                self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
                 return False
 
-            # check if the predicate is exceptional
-            if (predicate_tag.head_prime_repname or predicate_tag.head_repname) in self.exceptional_head_repnames:
-                self.logger.debug(f'No volition: this predicate is exceptional')
+        # checks the suffix
+        for mrph in reversed(predicate_tag.mrph_list()):
+            # 形容詞性名詞接尾辞: 風邪気味だ
+            if '形容詞性名詞接尾辞' == mrph.bunrui:
+                self.logger.debug(f'No volition: {mrph.midasi} is a 形容詞性名詞接尾辞')
                 return False
 
-            # checks the predicate
-            for mrph in reversed(predicate_tag.mrph_list()):
-                # 可能動詞: 飲める, 走れる
-                if '可能動詞' in mrph.imis:
-                    self.logger.debug(f'No volition: {mrph.midasi} is 可能動詞')
+            # 形容詞性述語接尾辞
+            if '形容詞性述語接尾辞' == mrph.bunrui:
+                # NOTE: 'たい/たい' is not necessary in fact, because it implies the modality of 意志
+                if mrph.repname not in {'ない/ない', 'たい/たい'}:
+                    self.logger.debug(f'No volition: {mrph.midasi} is a 形容詞性述語接尾辞 which does not imply'
+                                      f'volition')
                     return False
 
-                # 自他動詞:他: 色づく, 削れる
-                if '自他動詞:他' in mrph.imis:
-                    self.logger.debug(f'No volition: {mrph.midasi} is 自他動詞:他')
+            # 動詞性接尾辞
+            if '動詞性接尾辞' == mrph.bunrui:
+                # 可能接尾辞: 預けておける, 持っていける
+                if '可能接尾辞' in mrph.imis:
+                    self.logger.debug(f'No volition: {mrph.midasi} is a 可能接尾辞')
                     return False
 
-            return True
+                non_volition_suffixes = {
+                    'なる/なる',  # 行かなくなる, しなくなる
+                    'くれる/くれる',  # 来てくれる, 叱ってくれる
+                    'しまう/しまう',  # 飲んでしまう, 言ってしまう
+                    '下さる/くださる',  # 来て下さる
+                    '得る/える',   # 考え得る
+                    '過ぎる/すぎる',  # 行きすぎる
+                    'かねる/かねる',  # しかねる
+                    'あぐむ/あぐむ',  # 攻めあぐむ
+                    'あぐねる/あぐねる',  # 攻めあぐねる
+                    'そびれる/そびれる',  # 書きそびれる
+                    'めく/めく',  # 罪人めく
+                    'ちまう/ちまう',  # 行っちまう
+                    'じまう/じまう',  # 読んじまう
+                    'やがる/やがる',  # 帰りやがる
+                }
+                if mrph.repname in non_volition_suffixes:
+                    self.logger.debug(f'No volition: {mrph.midasi} is a 動詞性接尾辞 which does not imply volition')
+                    return False
 
-        return False
+        # checks the type
+        predicate_type = re.search('<用言:([動形判])>', predicate_tag.fstring).group(1)
+        if predicate_type in {'形', '判'}:
+            self.logger.debug(f'No volition: the predicate is {predicate_type}')
+            return False
+
+        # checks the meaning
+        if (predicate_tag.head_prime_repname or predicate_tag.head_repname) in self.exceptional_head_repnames:
+            self.logger.debug(f'No volition: this predicate is exceptional')
+            return False
+
+        for mrph in reversed(predicate_tag.mrph_list()):
+            # 可能動詞: 飲める, 走れる
+            if '可能動詞' in mrph.imis:
+                self.logger.debug(f'No volition: {mrph.midasi} is a 可能動詞')
+                return False
+
+            # 自他動詞:他: 色づく, 削れる
+            if '自他動詞:他' in mrph.imis:
+                self.logger.debug(f'No volition: {mrph.midasi} is a 自他動詞:他')
+                return False
+
+        return True
 
     @staticmethod
     def preprocess_input_str(input_str):
