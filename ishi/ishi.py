@@ -1,5 +1,4 @@
 """Ishi: A volition classifier for Japanese."""
-import os
 import pathlib
 import re
 import typing
@@ -25,12 +24,6 @@ def has_volition(str_or_blist_or_tag, nominative_str_or_tag=None, logging_level=
     """
     ishi = Ishi()
     return ishi(str_or_blist_or_tag, nominative_str_or_tag, logging_level)
-
-
-def get_non_volition_head_repnames():
-    here = os.path.dirname(os.path.abspath(__file__))
-    with open(os.path.join(here, 'non_volition_head_repnames.txt')) as f:
-        return [line.strip() for line in f]
 
 
 class Ishi:
@@ -73,8 +66,6 @@ class Ishi:
 
     def __call__(self, str_or_blist_or_tag, nominative_str_or_tag=None, logging_level='INFO'):
         """Checks if the given input has volition.
-
-        Ishi relies on language analysis by Jumanpp.
 
         Args:
             str_or_blist_or_tag (typing.Union[str, BList, Tag]): An input string or the language analysis by KNP.
@@ -194,7 +185,7 @@ class Ishi:
 
     @staticmethod
     def _preprocess_input_str(input_str):
-        """Modifies the given input so that Jumanpp can analyze it.
+        """Modifies the given input so that the language analyzers can process it.
 
         Args:
             input_str (str): An input string.
