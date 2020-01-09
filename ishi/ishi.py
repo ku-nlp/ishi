@@ -147,8 +147,7 @@ class Ishi:
             # 形容詞性述語接尾辞
             if '形容詞性述語接尾辞' == mrph.bunrui:
                 if mrph.repname not in self._valid_adjective_predicate_suffix_repnames:
-                    self.logger.debug(f'No volition: {mrph.midasi} is a 形容詞性述語接尾辞 which does not imply'
-                                      f'volition')
+                    self.logger.debug(f'No volition: {mrph.midasi} is a 形容詞性述語接尾辞 which does not imply volition')
                     return False
 
             # 動詞性接尾辞
