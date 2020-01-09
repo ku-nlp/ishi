@@ -8,9 +8,6 @@ from pyknp import KNP, BList, Tag
 from mojimoji import han_to_zen
 
 
-here = os.path.dirname(os.path.abspath(__file__))
-
-
 def has_volition(str_or_blist_or_tag, nominative_str_or_tag=None, logging_level='INFO'):
     """Checks if the given input has volition.
 
