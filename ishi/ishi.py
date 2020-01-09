@@ -1,11 +1,12 @@
 """Ishi: A volition classifier for Japanese."""
-from logging import getLogger, StreamHandler, Formatter
-import re
 import os
+import pathlib
+import re
 import typing
+from logging import getLogger, StreamHandler, Formatter
 
-from pyknp import KNP, BList, Tag
 from mojimoji import han_to_zen
+from pyknp import KNP, BList, Tag
 
 
 def has_volition(str_or_blist_or_tag, nominative_str_or_tag=None, logging_level='INFO'):
@@ -35,26 +36,40 @@ def get_non_volition_head_repnames():
 class Ishi:
     """Ishi is a volition classifier for Japanese."""
 
-    def __init__(self, non_volition_head_repnames=None):
-        """Ishi prepares KNP and a list of exceptional head repnames.
-
-        Args:
-            non_volition_head_repnames (typing.List[str]): A list of exceptional head repnames.
-                Ishi judges that clauses with these head repnames do not have volition.
-
-        """
+    def __init__(self):
+        # prepares a logger
         self.logger = getLogger(__name__)
         handler = StreamHandler()
         handler.setFormatter(Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
         self.logger.addHandler(handler)
         self.logger.propagate = False
 
-        self.knp = KNP()
+        # prepares a language analyzer
+        self._knp = KNP()
 
-        if non_volition_head_repnames:
-            self.exceptional_head_repnames = set(non_volition_head_repnames)
-        else:
-            self.exceptional_head_repnames = set(get_non_volition_head_repnames())
+        # prepares rules
+        self._valid_nominative_strings = \
+            self._load_file('valid_nominative_strings.txt')
+        self._valid_nominative_semantic_markers = \
+            self._load_file('valid_nominative_semantic_markers.txt')
+        self._volition_modalities = \
+            self._load_file('volition_modalities.txt')
+        self._volition_voices = \
+            self._load_file('volition_voices.txt')
+        self._non_volition_voices = \
+            self._load_file('non_volition_voices.txt')
+        self._valid_adjective_predicate_suffix_repnames = \
+            self._load_file('valid_adjective_predicate_suffix_repnames.txt')
+        self._non_volition_verbal_suffix_semantic_labels = \
+            self._load_file('non_volition_verbal_suffix_semantic_labels.txt')
+        self._non_volition_verbal_suffix_repnames = \
+            self._load_file('non_volition_verbal_suffix_repnames.txt')
+        self._non_volition_types = \
+            self._load_file('non_volition_types.txt')
+        self._non_volition_head_repnames = \
+            self._load_file('non_volition_head_repnames.txt')
+        self._non_volition_semantic_labels = \
+            self._load_file('non_volition_semantic_labels.txt')
 
     def __call__(self, str_or_blist_or_tag, nominative_str_or_tag=None, logging_level='INFO'):
         """Checks if the given input has volition.
@@ -77,11 +92,11 @@ class Ishi:
         self.logger.setLevel(logging_level)
 
         if isinstance(str_or_blist_or_tag, str):
-            blist = self.knp.parse(self.preprocess_input_str(str_or_blist_or_tag))
-            predicate_tag = self.extract_predicate_tag(blist)
+            blist = self._knp.parse(self._preprocess_input_str(str_or_blist_or_tag))
+            predicate_tag = self._extract_predicate_tag(blist)
         elif isinstance(str_or_blist_or_tag, BList):
             blist = str_or_blist_or_tag
-            predicate_tag = self.extract_predicate_tag(blist)
+            predicate_tag = self._extract_predicate_tag(blist)
         elif isinstance(str_or_blist_or_tag, Tag):
             blist = None
             predicate_tag = str_or_blist_or_tag
@@ -100,11 +115,14 @@ class Ishi:
                         nominative_str_or_tag = blist.tag_list()[nominative.tid]
 
         if isinstance(nominative_str_or_tag, str):
-            if nominative_str_or_tag not in {'著者', '読者', '不特定:人'}:
+            if nominative_str_or_tag not in self._valid_nominative_strings:
                 self.logger.debug('No volition: the nominative is not a subject')
                 return False
         elif isinstance(nominative_str_or_tag, Tag):
-            if '主体' not in re.findall("<SM-(.+?)>", nominative_str_or_tag.fstring):
+            for semantic_marker in re.findall("<SM-(.+?)>", nominative_str_or_tag.fstring):
+                if semantic_marker in self._valid_nominative_semantic_markers:
+                    break
+            else:
                 self.logger.debug('No volition: the nominative is not a subject')
                 return False
         else:
@@ -112,7 +130,7 @@ class Ishi:
 
         # checks the modality
         for modality in re.findall("<モダリティ-(.+?)>", predicate_tag.fstring):
-            if modality in {'意志', '命令', '依頼Ａ', '依頼Ｂ', '評価:弱', '評価:強'}:
+            if modality in self._volition_modalities:
                 self.logger.debug(f'Volition: the predicate has the modality of {modality}')
                 return True
 
@@ -120,11 +138,11 @@ class Ishi:
         predicate_voice = re.search('<態:(.+?)>', predicate_tag.fstring)
         if predicate_voice:
             predicate_voice = predicate_voice.group(1)
-            if predicate_voice == '使役':
+            if predicate_voice in self._volition_voices:
                 self.logger.debug(f'Volition: the predicate uses the voice of {predicate_voice}')
                 return True
 
-            if predicate_voice in {'受動', '可能', '受動|可能', '使役&受動', '使役&受動|使役&可能'}:
+            if predicate_voice in self._non_volition_voices:
                 self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
                 return False
 
@@ -137,65 +155,45 @@ class Ishi:
 
             # 形容詞性述語接尾辞
             if '形容詞性述語接尾辞' == mrph.bunrui:
-                # NOTE: 'たい/たい' is not necessary in fact, because it implies the modality of 意志
-                if mrph.repname not in {'ない/ない', 'たい/たい'}:
+                if mrph.repname not in self._valid_adjective_predicate_suffix_repnames:
                     self.logger.debug(f'No volition: {mrph.midasi} is a 形容詞性述語接尾辞 which does not imply'
                                       f'volition')
                     return False
 
             # 動詞性接尾辞
             if '動詞性接尾辞' == mrph.bunrui:
-                # 可能接尾辞: 預けておける, 持っていける
-                if '可能接尾辞' in mrph.imis:
-                    self.logger.debug(f'No volition: {mrph.midasi} is a 可能接尾辞')
-                    return False
+                for semantic_label in self._non_volition_verbal_suffix_semantic_labels:
+                    if semantic_label in mrph.imis:
+                        self.logger.debug(f'No volition: {mrph.midasi} is a {semantic_label}')
+                        return False
 
-                non_volition_suffixes = {
-                    'なる/なる',  # 行かなくなる, しなくなる
-                    'くれる/くれる',  # 来てくれる, 叱ってくれる
-                    'しまう/しまう',  # 飲んでしまう, 言ってしまう
-                    '下さる/くださる',  # 来て下さる
-                    '得る/える',   # 考え得る
-                    '過ぎる/すぎる',  # 行きすぎる
-                    'かねる/かねる',  # しかねる
-                    'あぐむ/あぐむ',  # 攻めあぐむ
-                    'あぐねる/あぐねる',  # 攻めあぐねる
-                    'そびれる/そびれる',  # 書きそびれる
-                    'めく/めく',  # 罪人めく
-                    'ちまう/ちまう',  # 行っちまう
-                    'じまう/じまう',  # 読んじまう
-                    'やがる/やがる',  # 帰りやがる
-                }
-                if mrph.repname in non_volition_suffixes:
+                if mrph.repname in self._non_volition_verbal_suffix_repnames:
                     self.logger.debug(f'No volition: {mrph.midasi} is a 動詞性接尾辞 which does not imply volition')
                     return False
 
         # checks the type
-        predicate_type = re.search('<用言:([動形判])>', predicate_tag.fstring).group(1)
-        if predicate_type in {'形', '判'}:
-            self.logger.debug(f'No volition: the predicate is {predicate_type}')
-            return False
+        predicate_type = re.search('<用言:([動形判])>', predicate_tag.fstring)
+        if predicate_type:
+            predicate_type = predicate_type. group(1)
+            if predicate_type in self._non_volition_types:
+                self.logger.debug(f'No volition: the predicate is {predicate_type}')
+                return False
 
         # checks the meaning
-        if (predicate_tag.head_prime_repname or predicate_tag.head_repname) in self.exceptional_head_repnames:
+        if (predicate_tag.head_prime_repname or predicate_tag.head_repname) in self._non_volition_head_repnames:
             self.logger.debug(f'No volition: the predicate is exceptional')
             return False
 
         for mrph in reversed(predicate_tag.mrph_list()):
-            # 可能動詞: 飲める, 走れる
-            if '可能動詞' in mrph.imis:
-                self.logger.debug(f'No volition: {mrph.midasi} is a 可能動詞')
-                return False
-
-            # 自他動詞:他: 色づく, 削れる
-            if '自他動詞:他' in mrph.imis:
-                self.logger.debug(f'No volition: {mrph.midasi} is a 自他動詞:他')
-                return False
+            for semantic_label in self._non_volition_semantic_labels:
+                if semantic_label in mrph.imis:
+                    self.logger.debug(f'No volition: {mrph.midasi} is a {semantic_label}')
+                    return False
 
         return True
 
     @staticmethod
-    def preprocess_input_str(input_str):
+    def _preprocess_input_str(input_str):
         """Modifies the given input so that Jumanpp can analyze it.
 
         Args:
@@ -209,7 +207,7 @@ class Ishi:
         return preprocessed
 
     @staticmethod
-    def extract_predicate_tag(knp_output):
+    def _extract_predicate_tag(knp_output):
         """Extracts the predicate part from the given KNP output.
 
         Args:
@@ -224,3 +222,18 @@ class Ishi:
                 return tag
         else:
             return knp_output.tag_list()[-1]
+
+    @staticmethod
+    def _load_file(filename):
+        """Loads a rule written as a text file.
+
+        Args:
+            filename (str): The name of a rule file.
+
+        Returns:
+            typing.Set[str]
+
+        """
+        path = pathlib.Path(__file__).parent / 'rules' / filename
+        with path.open(encoding='utf-8') as f:
+            return set(line.strip() for line in f)
