@@ -178,7 +178,7 @@ class Ishi:
 
         # checks the meaning
         if (predicate_tag.head_prime_repname or predicate_tag.head_repname) in self.exceptional_head_repnames:
-            self.logger.debug(f'No volition: this predicate is exceptional')
+            self.logger.debug(f'No volition: the predicate is exceptional')
             return False
 
         for mrph in reversed(predicate_tag.mrph_list()):
