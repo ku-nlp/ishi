@@ -137,6 +137,8 @@ class Ishi:
                 self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
                 return False
 
+        # TODO: 可能表現をチェック
+
         # checks the suffix
         for mrph in reversed(predicate_tag.mrph_list()):
             # 形容詞性名詞接尾辞: 風邪気味だ
