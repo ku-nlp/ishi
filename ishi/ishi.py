@@ -72,7 +72,7 @@ class Ishi:
                 If the nominative comes from exophora resolution, pass the surface string such as '著者' and '読者'.
                 Otherwise, pass the language analysis of the nominative with the type of pyknp.Tag.
                 If this parameter is None, KNP will analyze the nominative. Care must be taken in that KNP just performs
-                case analysis so neither exophora and inter-sentential anaphora will not be resolved.
+                case analysis so neither exophora and inter-sentential anaphora will be resolved.
             logging_level (str): The logging level.
 
         Returns:
