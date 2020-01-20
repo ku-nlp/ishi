@@ -1,6 +1,5 @@
 """Ishi: A volition classifier for Japanese."""
 import pathlib
-import re
 import typing
 from logging import getLogger, StreamHandler, Formatter
 
@@ -110,8 +109,8 @@ class Ishi:
                 self.logger.debug('No volition: the nominative is not a subject')
                 return False
         elif isinstance(nominative_str_or_tag, Tag):
-            for semantic_marker in re.findall("<SM-(.+?)>", nominative_str_or_tag.fstring):
-                if semantic_marker in self._valid_nominative_semantic_markers:
+            for semantic_marker in self._valid_nominative_semantic_markers:
+                if semantic_marker in nominative_str_or_tag.fstring:
                     break
             else:
                 self.logger.debug('No volition: the nominative is not a subject')
@@ -120,24 +119,21 @@ class Ishi:
             self.logger.warning('Failed to ensure that nominative is a subject')
 
         # checks the modality
-        for modality in re.findall("<モダリティ-(.+?)>", predicate_tag.fstring):
-            if modality in self._volition_modalities:
+        for modality in self._volition_modalities:
+            if modality in predicate_tag.fstring:
                 self.logger.debug(f'Volition: the predicate has the modality of {modality}')
                 return True
 
         # checks the voice
-        predicate_voice = re.search('<態:(.+?)>', predicate_tag.fstring)
-        if predicate_voice:
-            predicate_voice = predicate_voice.group(1)
-            if predicate_voice in self._volition_voices:
-                self.logger.debug(f'Volition: the predicate uses the voice of {predicate_voice}')
+        for voice in self._volition_voices:
+            if voice in predicate_tag.fstring:
+                self.logger.debug(f'Volition: the predicate uses the voice of {voice}')
                 return True
 
-            if predicate_voice in self._non_volition_voices:
-                self.logger.debug(f'No volition: the predicate uses the voice of {predicate_voice}')
+        for voice in self._non_volition_voices:
+            if voice in predicate_tag.fstring:
+                self.logger.debug(f'No volition: the predicate uses the voice of {voice}')
                 return False
-
-        # TODO: 可能表現をチェック
 
         # checks the suffix
         for mrph in reversed(predicate_tag.mrph_list()):
@@ -164,11 +160,9 @@ class Ishi:
                     return False
 
         # checks the type
-        predicate_type = re.search('<用言:([動形判])>', predicate_tag.fstring)
-        if predicate_type:
-            predicate_type = predicate_type. group(1)
-            if predicate_type in self._non_volition_types:
-                self.logger.debug(f'No volition: the predicate is {predicate_type}')
+        for type_ in self._non_volition_types:
+            if type_ in predicate_tag.fstring:
+                self.logger.debug(f'No volition: the predicate is {type_}')
                 return False
 
         # checks the meaning
