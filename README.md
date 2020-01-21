@@ -31,15 +31,5 @@ print(ishi('自然言語処理の勉強を始めてびっくりした'))  # Fals
 from pyknp import KNP
 knp = KNP()
 knp_output = knp.parse('自然言語処理の研究に必要なのは言語に対する深い洞察だ')
-print(ishi(knp_output))  # False because "だ" is a linking verb
-
-# Ishi even accepts the basic phrase of a predicate
-predicate_tag = None
-for tag in reversed(knp_output.tag_list()):
-    if '<用言:' in tag.fstring:
-        predicate_tag = tag
-        break
-
-if predicate_tag:
-    print(ishi(predicate_tag))  # False
+print(ishi(knp_output))  # False
 ```
