@@ -204,7 +204,7 @@ class Ishi:
 
         """
         for tag in reversed(knp_output.tag_list()):
-            if '<用言:' in tag.fstring:
+            if '用言' in tag.features:
                 return tag
         else:
             return knp_output.tag_list()[-1]
