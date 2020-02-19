@@ -73,8 +73,8 @@ class Ishi:
                 Otherwise, pass the language analysis of the nominative with the type of pyknp.Tag.
                 If this parameter is None, KNP will analyze the nominative. Care must be taken in that KNP just performs
                 case analysis so neither exophora and inter-sentential anaphora will be resolved.
-            logger (Logger): A logger.
-            logging_level (str): The logging level.
+            logger (Logger, optional): A logger.
+            logging_level (str): The logging level. (If logger is not None, this option will be ignored)
 
         Returns:
             bool: True for having volition, False otherwise.
@@ -82,7 +82,7 @@ class Ishi:
         """
         if not logger:
             logger = self.logger
-        logger.setLevel(logging_level)
+            logger.setLevel(logging_level)
 
         if isinstance(str_or_blist_or_tag, str):
             blist = self._knp.parse(self._preprocess_input_str(str_or_blist_or_tag))
