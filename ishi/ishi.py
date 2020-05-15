@@ -1,13 +1,15 @@
 """Ishi: A volition classifier for Japanese."""
 import pathlib
-from logging import getLogger, Logger, StreamHandler, Formatter
+from logging import getLogger
 from typing import Union, Set
 
 from mojimoji import han_to_zen
 from pyknp import KNP, BList, Tag
 
+logger = getLogger(__name__)
 
-def has_volition(str_or_blist_or_tag, nominative_str_or_tag=None, logging_level='INFO'):
+
+def has_volition(str_or_blist_or_tag, nominative_str_or_tag=None):
     """Checks if the given input has volition.
 
     Args:
@@ -15,31 +17,21 @@ def has_volition(str_or_blist_or_tag, nominative_str_or_tag=None, logging_level=
         nominative_str_or_tag (Union[str, Tag], optional): The string or language analysis of the nominative.
             If the nominative comes from exophora resolution, pass the surface string such as '著者' and '読者'.
             Otherwise, pass the language analysis of the nominative with the type of pyknp.Tag.
-        logging_level (str): The logging level.
 
     Returns:
         bool: True for having volition, False otherwise.
 
     """
     ishi = Ishi()
-    return ishi(str_or_blist_or_tag, nominative_str_or_tag, logging_level=logging_level)
+    return ishi(str_or_blist_or_tag, nominative_str_or_tag)
 
 
 class Ishi:
     """Ishi is a volition classifier for Japanese."""
 
     def __init__(self):
-        # prepares a logger
-        self.logger = getLogger(__name__)
-        handler = StreamHandler()
-        handler.setFormatter(Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-        self.logger.addHandler(handler)
-        self.logger.propagate = False
-
-        # prepares a language analyzer
         self._knp = KNP()
 
-        # prepares rules
         self._valid_nominative_strings = \
             self._load_file('valid_nominative_strings.txt')
         self._valid_nominative_semantic_markers = \
@@ -63,7 +55,7 @@ class Ishi:
         self._non_volition_semantic_labels = \
             self._load_file('non_volition_semantic_labels.txt')
 
-    def __call__(self, str_or_blist_or_tag, nominative_str_or_tag=None, logger=None, logging_level='INFO'):
+    def __call__(self, str_or_blist_or_tag, nominative_str_or_tag=None):
         """Checks if the given input has volition.
 
         Args:
@@ -73,17 +65,11 @@ class Ishi:
                 Otherwise, pass the language analysis of the nominative with the type of pyknp.Tag.
                 If this parameter is None, KNP will analyze the nominative. Care must be taken in that KNP just performs
                 case analysis so neither exophora and inter-sentential anaphora will be resolved.
-            logger (Logger, optional): A logger.
-            logging_level (str): The logging level. (If logger is not None, this option will be ignored)
 
         Returns:
             bool: True for having volition, False otherwise.
 
         """
-        if not logger:
-            logger = self.logger
-            logger.setLevel(logging_level)
-
         if isinstance(str_or_blist_or_tag, str):
             blist = self._knp.parse(self._preprocess_input_str(str_or_blist_or_tag))
             predicate_tag = self._extract_predicate_tag(blist)
