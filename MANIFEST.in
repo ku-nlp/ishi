@@ -1,5 +1,7 @@
 include README.md
 include LICENSE
+include ishi/VERSION
+graft ishi/rules
 graft tests
 global-exclude __pycache__
 global-exclude *.py[co]

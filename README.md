@@ -8,10 +8,8 @@
 
 ## Installation
 
-To install Ishi, use pip.
-
 ```
-$ pip install .
+$ pip install ishi
 ```
 
 ## How to Use
