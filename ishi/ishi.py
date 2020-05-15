@@ -42,6 +42,10 @@ class Ishi:
             self._load_file('volition_voices.txt')
         self._non_volition_voices = \
             self._load_file('non_volition_voices.txt')
+        self._volition_adverb_repnames = \
+            self._load_file('volition_adverb_repnames.txt')
+        self._non_volition_adverb_repnames = \
+            self._load_file('non_volition_adverb_repnames.txt')
         self._valid_adjective_predicate_suffix_repnames = \
             self._load_file('valid_adjective_predicate_suffix_repnames.txt')
         self._non_volition_verbal_suffix_semantic_labels = \
@@ -107,6 +111,18 @@ class Ishi:
         else:
             logger.warning('Failed to ensure that nominative is a subject')
 
+        # checks adverbs modifying the predicates
+        for child_tag in predicate_tag.children:
+            for mrph in filter(lambda mrph: mrph.hinsi == '副詞', child_tag.mrph_list()):
+                for adverb in self._volition_adverb_repnames:
+                    if mrph.repname == adverb:
+                        logger.debug(f'Volition: the nominative is modified by {adverb}')
+                        return True
+                for adverb in self._non_volition_adverb_repnames:
+                    if mrph.repname == adverb:
+                        logger.debug(f'No volition: the nominative is modified by {adverb}')
+                        return True
+
         # checks the modality
         for modality in self._volition_modalities:
             if modality in predicate_tag.fstring:
@@ -118,7 +134,6 @@ class Ishi:
             if voice in predicate_tag.fstring:
                 logger.debug(f'Volition: the predicate uses the voice of {voice}')
                 return True
-
         for voice in self._non_volition_voices:
             if voice in predicate_tag.fstring:
                 logger.debug(f'No volition: the predicate uses the voice of {voice}')
@@ -130,20 +145,17 @@ class Ishi:
             if '形容詞性名詞接尾辞' == mrph.bunrui:
                 logger.debug(f'No volition: {mrph.midasi} is a 形容詞性名詞接尾辞')
                 return False
-
             # 形容詞性述語接尾辞
             if '形容詞性述語接尾辞' == mrph.bunrui:
                 if mrph.repname not in self._valid_adjective_predicate_suffix_repnames:
                     logger.debug(f'No volition: {mrph.midasi} is a 形容詞性述語接尾辞 that does not imply volition')
                     return False
-
             # 動詞性接尾辞
             if '動詞性接尾辞' == mrph.bunrui:
                 for semantic_label in self._non_volition_verbal_suffix_semantic_labels:
                     if semantic_label in mrph.imis:
                         logger.debug(f'No volition: {mrph.midasi} is a {semantic_label}')
                         return False
-
                 if mrph.repname in self._non_volition_verbal_suffix_repnames:
                     logger.debug(f'No volition: {mrph.midasi} is a 動詞性接尾辞 that does not imply volition')
                     return False
@@ -158,13 +170,11 @@ class Ishi:
         if (predicate_tag.head_prime_repname or predicate_tag.head_repname) in self._non_volition_head_repnames:
             logger.debug(f'No volition: the predicate is exceptional')
             return False
-
         for mrph in reversed(predicate_tag.mrph_list()):
             for semantic_label in self._non_volition_semantic_labels:
                 if semantic_label in mrph.imis:
                     logger.debug(f'No volition: {mrph.midasi} is a {semantic_label}')
                     return False
-
         return True
 
     @staticmethod
@@ -189,7 +199,7 @@ class Ishi:
             knp_output (BList): A KNP output.
 
         Returns:
-            Tag
+            Tag: A tag corresponding to a predicate.
 
         """
         for tag in reversed(knp_output.tag_list()):
@@ -206,7 +216,7 @@ class Ishi:
             filename (str): The name of a rule file.
 
         Returns:
-            Set[str]
+            Set[str]: A set of strings.
 
         """
         path = pathlib.Path(__file__).parent / 'rules' / filename
